@@ -166,10 +166,6 @@ def load_items():
 
 def main():
     items = load_items()
-    items = [
-        item for item in items
-        if item.get("barcode") == "5906365343460"
-    ]
 
     total_batches = (
         len(items) + BATCH_SIZE - 1
