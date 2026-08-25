@@ -166,7 +166,7 @@ def load_items():
 
 def main():
     items = load_items()
-    items = items[:1]
+    items = items[:13]
 
     total_batches = (
         len(items) + BATCH_SIZE - 1
