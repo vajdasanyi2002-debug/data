@@ -7,23 +7,42 @@ import openpyxl
 import requests
 
 
-EXCEL_PATH = Path("Date_produse_Stalco.xlsx")
-WEBHOOK_URL = os.environ["ODOO_WEBHOOK_URL"]
+# ======================================================
+# CONFIG
+# ======================================================
+
+EXCEL_PATH = Path(
+    "Date_produse_Stalco.xlsx"
+)
+
+WEBHOOK_URL = os.environ[
+    "ODOO_WEBHOOK_URL"
+]
 
 BATCH_SIZE = 200
 TIMEOUT = 120
 
-# TESZT MÓD
+
+# ======================================================
+# TEST MODE
+# ======================================================
+
 TEST_BARCODE = "5901466110942"
 
 
+# ======================================================
+# HELPERS
+# ======================================================
+
 def blank(value):
     return value is None or (
-        isinstance(value, str) and not value.strip()
+        isinstance(value, str)
+        and not value.strip()
     )
 
 
 def barcode_value(value):
+
     if blank(value):
         return None
 
@@ -31,47 +50,81 @@ def barcode_value(value):
         return str(value)
 
     if isinstance(value, float):
+
         if value.is_integer():
-            return str(int(value))
+            return str(
+                int(value)
+            )
+
         return None
 
-    value = str(value).strip()
+    value = str(
+        value
+    ).strip()
 
-    if value.endswith(".0") and value[:-2].isdigit():
+    if (
+        value.endswith(".0")
+        and value[:-2].isdigit()
+    ):
         value = value[:-2]
 
     return value or None
 
 
 def number_value(value):
+
     if blank(value):
         return None
 
     if isinstance(value, str):
-        value = value.strip().replace(",", ".")
+
+        value = (
+            value
+            .strip()
+            .replace(",", ".")
+        )
 
     return float(value)
 
 
 def text_value(value):
+
     if blank(value):
         return None
 
     if isinstance(value, int):
+
         return str(value)
 
-    if isinstance(value, float) and value.is_integer():
-        return str(int(value))
+    if (
+        isinstance(value, float)
+        and value.is_integer()
+    ):
 
-    value = str(value).strip()
+        return str(
+            int(value)
+        )
 
-    if value.endswith(".0") and value[:-2].isdigit():
+    value = str(
+        value
+    ).strip()
+
+    if (
+        value.endswith(".0")
+        and value[:-2].isdigit()
+    ):
+
         value = value[:-2]
 
     return value or None
 
 
+# ======================================================
+# LOAD EXCEL
+# ======================================================
+
 def load_items():
+
     wb = openpyxl.load_workbook(
         EXCEL_PATH,
         read_only=True,
@@ -90,26 +143,39 @@ def load_items():
         )
     ]
 
+
+    # ==================================================
+    # REQUIRED COLUMNS
+    # ==================================================
+
     required = [
         "Cod e bare/Cod furnizo",
         "Denumire Stalco engleza",
         "UM",
         "PA Euro",
+        "PV RON cu TVA",
         "weight",
         "l10n_ro_net_weight",
         "hs_code",
     ]
 
+
     for name in required:
+
         if name not in headers:
+
             raise RuntimeError(
-                "Missing Excel column: %s" % name
+                "Missing Excel column: %s"
+                % name
             )
 
+
     columns = {
-        name: headers.index(name)
+        name:
+            headers.index(name)
         for name in headers
     }
+
 
     items = []
     seen = set()
@@ -117,10 +183,21 @@ def load_items():
     skipped_barcode = 0
     skipped_empty = 0
 
+
+    # ==================================================
+    # ROWS
+    # ==================================================
+
     for row in ws.iter_rows(
         min_row=2,
         values_only=True,
     ):
+
+
+        # ----------------------------------------------
+        # BARCODE
+        # ----------------------------------------------
+
         barcode = barcode_value(
             row[
                 columns[
@@ -129,24 +206,38 @@ def load_items():
             ]
         )
 
+
         if not barcode:
+
             skipped_barcode += 1
+
             continue
 
+
         if barcode in seen:
+
             raise RuntimeError(
                 "Duplicate barcode in Excel: %s"
                 % barcode
             )
 
+
         seen.add(barcode)
 
+
         item = {
-            "barcode": barcode,
-            "supplier_code": barcode,
+            "barcode":
+                barcode,
+
+            "supplier_code":
+                barcode,
         }
 
-        # BESZÁLLÍTÓI TERMÉKNÉV
+
+        # ----------------------------------------------
+        # SUPPLIER PRODUCT NAME
+        # ----------------------------------------------
+
         supplier_name = text_value(
             row[
                 columns[
@@ -155,10 +246,18 @@ def load_items():
             ]
         )
 
-        if supplier_name is not None:
-            item["supplier_name"] = supplier_name
 
-        # BESZERZÉSI ÁR EUR
+        if supplier_name is not None:
+
+            item[
+                "supplier_name"
+            ] = supplier_name
+
+
+        # ----------------------------------------------
+        # PURCHASE PRICE EUR
+        # ----------------------------------------------
+
         supplier_price = number_value(
             row[
                 columns[
@@ -167,10 +266,38 @@ def load_items():
             ]
         )
 
-        if supplier_price is not None:
-            item["supplier_price"] = supplier_price
 
-        # BESZERZÉSI MÉRTÉKEGYSÉG
+        if supplier_price is not None:
+
+            item[
+                "supplier_price"
+            ] = supplier_price
+
+
+        # ----------------------------------------------
+        # HALA SALE PRICE RON CU TVA
+        # ----------------------------------------------
+
+        sale_price_hala = number_value(
+            row[
+                columns[
+                    "PV RON cu TVA"
+                ]
+            ]
+        )
+
+
+        if sale_price_hala is not None:
+
+            item[
+                "sale_price_hala"
+            ] = sale_price_hala
+
+
+        # ----------------------------------------------
+        # PURCHASE UOM
+        # ----------------------------------------------
+
         um = text_value(
             row[
                 columns[
@@ -179,10 +306,16 @@ def load_items():
             ]
         )
 
+
         if um is not None:
+
             item["um"] = um
 
-        # BRUTTÓ SÚLY
+
+        # ----------------------------------------------
+        # GROSS WEIGHT
+        # ----------------------------------------------
+
         weight = number_value(
             row[
                 columns[
@@ -191,10 +324,18 @@ def load_items():
             ]
         )
 
-        if weight is not None:
-            item["weight"] = weight
 
-        # NETTÓ SÚLY
+        if weight is not None:
+
+            item[
+                "weight"
+            ] = weight
+
+
+        # ----------------------------------------------
+        # NET WEIGHT
+        # ----------------------------------------------
+
         net_weight = number_value(
             row[
                 columns[
@@ -203,10 +344,18 @@ def load_items():
             ]
         )
 
-        if net_weight is not None:
-            item["l10n_ro_net_weight"] = net_weight
 
-        # HS KÓD
+        if net_weight is not None:
+
+            item[
+                "l10n_ro_net_weight"
+            ] = net_weight
+
+
+        # ----------------------------------------------
+        # HS CODE
+        # ----------------------------------------------
+
         hs_code = text_value(
             row[
                 columns[
@@ -215,42 +364,78 @@ def load_items():
             ]
         )
 
-        if hs_code is not None:
-            item["hs_code"] = hs_code
 
-        # Ha barcode + supplier_code-on kívül nincs adat
+        if hs_code is not None:
+
+            item[
+                "hs_code"
+            ] = hs_code
+
+
+        # ----------------------------------------------
+        # NOTHING EXCEPT IDENTIFIERS
+        # ----------------------------------------------
+
         if len(item) <= 2:
+
             skipped_empty += 1
+
             continue
+
 
         items.append(item)
 
+
     wb.close()
 
-    print("Prepared:", len(items))
-    print("Skipped without barcode:", skipped_barcode)
-    print("Skipped without data:", skipped_empty)
+
+    print(
+        "Prepared:",
+        len(items)
+    )
+
+    print(
+        "Skipped without barcode:",
+        skipped_barcode
+    )
+
+    print(
+        "Skipped without data:",
+        skipped_empty
+    )
+
 
     return items
 
+
+# ======================================================
+# SEND BATCH
+# ======================================================
 
 def send_batch(
     batch,
     batch_number,
     total_batches,
 ):
+
     response = requests.post(
         WEBHOOK_URL,
         json={
-            "source": "github_stalco_product_data",
-            "items": batch,
+            "source":
+                "github_stalco_product_data",
+
+            "items":
+                batch,
         },
         timeout=TIMEOUT,
     )
 
+
     if not response.ok:
+
         raise RuntimeError(
-            "Batch %s/%s failed: HTTP %s - %s"
+            "Batch %s/%s failed: "
+            "HTTP %s - %s"
             % (
                 batch_number,
                 total_batches,
@@ -258,6 +443,7 @@ def send_batch(
                 response.text[:1000],
             )
         )
+
 
     print(
         "Batch %s/%s OK - %s products"
@@ -269,25 +455,52 @@ def send_batch(
     )
 
 
+# ======================================================
+# MAIN
+# ======================================================
+
 def main():
+
     items = load_items()
 
 
+    # ==================================================
+    # TEST MODE
+    # ==================================================
+    #
+    # CSAK:
+    #
+    # 5901466110942
+    #
+    # ==================================================
+
+    items = [
+        item
+        for item in items
+        if item.get("barcode")
+        == TEST_BARCODE
+    ]
+
+
     if not items:
+
         raise RuntimeError(
             "Test product not found in Excel: %s"
             % TEST_BARCODE
         )
+
 
     print(
         "TEST MODE - barcode:",
         TEST_BARCODE,
     )
 
+
     print(
         "TEST PAYLOAD:",
         items[0],
     )
+
 
     total_batches = (
         len(items)
@@ -295,18 +508,23 @@ def main():
         - 1
     ) // BATCH_SIZE
 
+
     for start in range(
         0,
         len(items),
         BATCH_SIZE,
     ):
+
         batch = items[
-            start:start + BATCH_SIZE
+            start:
+            start + BATCH_SIZE
         ]
+
 
         batch_number = (
             start // BATCH_SIZE
         ) + 1
+
 
         send_batch(
             batch,
@@ -314,7 +532,9 @@ def main():
             total_batches,
         )
 
+
         time.sleep(0.15)
+
 
     print(
         "DONE - %s rows sent to Odoo."
@@ -322,11 +542,18 @@ def main():
     )
 
 
+# ======================================================
+# ENTRY
+# ======================================================
+
 if __name__ == "__main__":
+
     try:
+
         main()
 
     except Exception as exc:
+
         print(
             "ERROR:",
             exc,
