@@ -272,12 +272,6 @@ def send_batch(
 def main():
     items = load_items()
 
-    # TESZT: CSAK A KIVÁLASZTOTT TERMÉK
-    items = [
-        item
-        for item in items
-        if item.get("barcode") == TEST_BARCODE
-    ]
 
     if not items:
         raise RuntimeError(
