@@ -13,7 +13,8 @@ WEBHOOK_URL = os.environ["ODOO_WEBHOOK_URL"]
 BATCH_SIZE = 200
 TIMEOUT = 120
 
-TEST_BARCODE = "5907180856821"
+# TESZT MÓD
+TEST_BARCODE = "5901466110942"
 
 
 def blank(value):
@@ -120,11 +121,6 @@ def load_items():
         min_row=2,
         values_only=True,
     ):
-
-        # --------------------------------------------------
-        # BARCODE / SUPPLIER CODE
-        # --------------------------------------------------
-
         barcode = barcode_value(
             row[
                 columns[
@@ -150,10 +146,7 @@ def load_items():
             "supplier_code": barcode,
         }
 
-        # --------------------------------------------------
-        # SUPPLIER PRODUCT NAME
-        # --------------------------------------------------
-
+        # BESZÁLLÍTÓI TERMÉKNÉV
         supplier_name = text_value(
             row[
                 columns[
@@ -165,10 +158,7 @@ def load_items():
         if supplier_name is not None:
             item["supplier_name"] = supplier_name
 
-        # --------------------------------------------------
-        # SUPPLIER PRICE - EUR
-        # --------------------------------------------------
-
+        # BESZERZÉSI ÁR EUR
         supplier_price = number_value(
             row[
                 columns[
@@ -180,10 +170,7 @@ def load_items():
         if supplier_price is not None:
             item["supplier_price"] = supplier_price
 
-        # --------------------------------------------------
-        # PURCHASE UOM
-        # --------------------------------------------------
-
+        # BESZERZÉSI MÉRTÉKEGYSÉG
         um = text_value(
             row[
                 columns[
@@ -195,10 +182,7 @@ def load_items():
         if um is not None:
             item["um"] = um
 
-        # --------------------------------------------------
-        # GROSS WEIGHT
-        # --------------------------------------------------
-
+        # BRUTTÓ SÚLY
         weight = number_value(
             row[
                 columns[
@@ -210,10 +194,7 @@ def load_items():
         if weight is not None:
             item["weight"] = weight
 
-        # --------------------------------------------------
-        # NET WEIGHT
-        # --------------------------------------------------
-
+        # NETTÓ SÚLY
         net_weight = number_value(
             row[
                 columns[
@@ -225,10 +206,7 @@ def load_items():
         if net_weight is not None:
             item["l10n_ro_net_weight"] = net_weight
 
-        # --------------------------------------------------
-        # HS CODE
-        # --------------------------------------------------
-
+        # HS KÓD
         hs_code = text_value(
             row[
                 columns[
@@ -240,11 +218,7 @@ def load_items():
         if hs_code is not None:
             item["hs_code"] = hs_code
 
-        # --------------------------------------------------
-        # EMPTY DATA
-        # --------------------------------------------------
-
-        # barcode + supplier_code önmagában még nem elég
+        # Ha barcode + supplier_code-on kívül nincs adat
         if len(item) <= 2:
             skipped_empty += 1
             continue
@@ -298,10 +272,7 @@ def send_batch(
 def main():
     items = load_items()
 
-    # --------------------------------------------------
-    # TEST MODE - ONLY ONE PRODUCT
-    # --------------------------------------------------
-
+    # TESZT: CSAK A KIVÁLASZTOTT TERMÉK
     items = [
         item
         for item in items
@@ -335,7 +306,6 @@ def main():
         len(items),
         BATCH_SIZE,
     ):
-
         batch = items[
             start:start + BATCH_SIZE
         ]
