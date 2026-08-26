@@ -24,10 +24,19 @@ TIMEOUT = 120
 
 
 # ======================================================
-# TEST MODE
+# TEST / REPLICATION SETTINGS
 # ======================================================
 
 TEST_BARCODE = "5901466110942"
+
+# False:
+# csak Excel -> Hala teszt
+#
+# True:
+# Hala összes Stalco variant ára
+# -> Precizia + Lunca
+#
+REPLICATE_STORE_PRICES = False
 
 
 # ======================================================
@@ -93,14 +102,12 @@ def text_value(value):
         return None
 
     if isinstance(value, int):
-
         return str(value)
 
     if (
         isinstance(value, float)
         and value.is_integer()
     ):
-
         return str(
             int(value)
         )
@@ -113,7 +120,6 @@ def text_value(value):
         value.endswith(".0")
         and value[:-2].isdigit()
     ):
-
         value = value[:-2]
 
     return value or None
@@ -143,10 +149,6 @@ def load_items():
         )
     ]
 
-
-    # ==================================================
-    # REQUIRED COLUMNS
-    # ==================================================
 
     required = [
         "Cod e bare/Cod furnizo",
@@ -184,15 +186,10 @@ def load_items():
     skipped_empty = 0
 
 
-    # ==================================================
-    # ROWS
-    # ==================================================
-
     for row in ws.iter_rows(
         min_row=2,
         values_only=True,
     ):
-
 
         # ----------------------------------------------
         # BARCODE
@@ -205,7 +202,6 @@ def load_items():
                 ]
             ]
         )
-
 
         if not barcode:
 
@@ -235,7 +231,7 @@ def load_items():
 
 
         # ----------------------------------------------
-        # SUPPLIER PRODUCT NAME
+        # SUPPLIER NAME
         # ----------------------------------------------
 
         supplier_name = text_value(
@@ -245,7 +241,6 @@ def load_items():
                 ]
             ]
         )
-
 
         if supplier_name is not None:
 
@@ -266,7 +261,6 @@ def load_items():
             ]
         )
 
-
         if supplier_price is not None:
 
             item[
@@ -275,7 +269,7 @@ def load_items():
 
 
         # ----------------------------------------------
-        # HALA SALE PRICE RON CU TVA
+        # HALA SALE PRICE
         # ----------------------------------------------
 
         sale_price_hala = number_value(
@@ -285,7 +279,6 @@ def load_items():
                 ]
             ]
         )
-
 
         if sale_price_hala is not None:
 
@@ -306,7 +299,6 @@ def load_items():
             ]
         )
 
-
         if um is not None:
 
             item["um"] = um
@@ -323,7 +315,6 @@ def load_items():
                 ]
             ]
         )
-
 
         if weight is not None:
 
@@ -344,7 +335,6 @@ def load_items():
             ]
         )
 
-
         if net_weight is not None:
 
             item[
@@ -364,17 +354,12 @@ def load_items():
             ]
         )
 
-
         if hs_code is not None:
 
             item[
                 "hs_code"
             ] = hs_code
 
-
-        # ----------------------------------------------
-        # NOTHING EXCEPT IDENTIFIERS
-        # ----------------------------------------------
 
         if len(item) <= 2:
 
@@ -416,6 +401,7 @@ def send_batch(
     batch,
     batch_number,
     total_batches,
+    replicate_store_prices=False,
 ):
 
     response = requests.post(
@@ -426,6 +412,9 @@ def send_batch(
 
             "items":
                 batch,
+
+            "replicate_store_prices":
+                replicate_store_prices,
         },
         timeout=TIMEOUT,
     )
@@ -467,39 +456,32 @@ def main():
     # ==================================================
     # TEST MODE
     # ==================================================
-    #
-    # CSAK:
-    #
-    # 5901466110942
-    #
-    # ==================================================
 
-    items = [
-        item
-        for item in items
-        if item.get("barcode")
-        == TEST_BARCODE
-    ]
+    if TEST_BARCODE:
 
+        items = [
+            item
+            for item in items
+            if item.get("barcode")
+            == TEST_BARCODE
+        ]
 
-    if not items:
+        if not items:
 
-        raise RuntimeError(
-            "Test product not found in Excel: %s"
-            % TEST_BARCODE
+            raise RuntimeError(
+                "Test product not found in Excel: %s"
+                % TEST_BARCODE
+            )
+
+        print(
+            "TEST MODE - barcode:",
+            TEST_BARCODE,
         )
 
-
-    print(
-        "TEST MODE - barcode:",
-        TEST_BARCODE,
-    )
-
-
-    print(
-        "TEST PAYLOAD:",
-        items[0],
-    )
+        print(
+            "TEST PAYLOAD:",
+            items[0],
+        )
 
 
     total_batches = (
@@ -520,16 +502,32 @@ def main():
             start + BATCH_SIZE
         ]
 
-
         batch_number = (
             start // BATCH_SIZE
         ) + 1
+
+
+        # A teljes 402 -> 403/404 replikációt
+        # CSAK AZ UTOLSÓ batch után kérjük.
+        #
+        # Így nem fut le 50-szer egy teljes importnál.
+
+        is_last_batch = (
+            batch_number
+            == total_batches
+        )
+
+        do_replication = (
+            REPLICATE_STORE_PRICES
+            and is_last_batch
+        )
 
 
         send_batch(
             batch,
             batch_number,
             total_batches,
+            replicate_store_prices=do_replication,
         )
 
 
@@ -539,6 +537,11 @@ def main():
     print(
         "DONE - %s rows sent to Odoo."
         % len(items)
+    )
+
+    print(
+        "Store price replication:",
+        REPLICATE_STORE_PRICES
     )
 
 
