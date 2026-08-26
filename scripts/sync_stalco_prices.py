@@ -13,6 +13,8 @@ WEBHOOK_URL = os.environ["ODOO_WEBHOOK_URL"]
 BATCH_SIZE = 200
 TIMEOUT = 120
 
+TEST_BARCODE = "5901466110942"
+
 
 def blank(value):
     return value is None or (
@@ -89,7 +91,9 @@ def load_items():
 
     required = [
         "Cod e bare/Cod furnizo",
+        "Denumire Stalco engleza",
         "UM",
+        "PA Euro",
         "weight",
         "l10n_ro_net_weight",
         "hs_code",
@@ -117,9 +121,9 @@ def load_items():
         values_only=True,
     ):
 
-        # ---------------------------------------------
-        # BARCODE
-        # ---------------------------------------------
+        # --------------------------------------------------
+        # BARCODE / SUPPLIER CODE
+        # --------------------------------------------------
 
         barcode = barcode_value(
             row[
@@ -143,11 +147,42 @@ def load_items():
 
         item = {
             "barcode": barcode,
+            "supplier_code": barcode,
         }
 
-        # ---------------------------------------------
+        # --------------------------------------------------
+        # SUPPLIER PRODUCT NAME
+        # --------------------------------------------------
+
+        supplier_name = text_value(
+            row[
+                columns[
+                    "Denumire Stalco engleza"
+                ]
+            ]
+        )
+
+        if supplier_name is not None:
+            item["supplier_name"] = supplier_name
+
+        # --------------------------------------------------
+        # SUPPLIER PRICE - EUR
+        # --------------------------------------------------
+
+        supplier_price = number_value(
+            row[
+                columns[
+                    "PA Euro"
+                ]
+            ]
+        )
+
+        if supplier_price is not None:
+            item["supplier_price"] = supplier_price
+
+        # --------------------------------------------------
         # PURCHASE UOM
-        # ---------------------------------------------
+        # --------------------------------------------------
 
         um = text_value(
             row[
@@ -160,9 +195,9 @@ def load_items():
         if um is not None:
             item["um"] = um
 
-        # ---------------------------------------------
+        # --------------------------------------------------
         # GROSS WEIGHT
-        # ---------------------------------------------
+        # --------------------------------------------------
 
         weight = number_value(
             row[
@@ -175,9 +210,9 @@ def load_items():
         if weight is not None:
             item["weight"] = weight
 
-        # ---------------------------------------------
+        # --------------------------------------------------
         # NET WEIGHT
-        # ---------------------------------------------
+        # --------------------------------------------------
 
         net_weight = number_value(
             row[
@@ -188,13 +223,11 @@ def load_items():
         )
 
         if net_weight is not None:
-            item[
-                "l10n_ro_net_weight"
-            ] = net_weight
+            item["l10n_ro_net_weight"] = net_weight
 
-        # ---------------------------------------------
+        # --------------------------------------------------
         # HS CODE
-        # ---------------------------------------------
+        # --------------------------------------------------
 
         hs_code = text_value(
             row[
@@ -207,13 +240,12 @@ def load_items():
         if hs_code is not None:
             item["hs_code"] = hs_code
 
-        # ---------------------------------------------
-        # EMPTY ROW
-        # ---------------------------------------------
+        # --------------------------------------------------
+        # EMPTY DATA
+        # --------------------------------------------------
 
-        # Ha a barcode-on kívül nincs használható adat,
-        # nem küldjük Odoo-nak.
-        if len(item) == 1:
+        # barcode + supplier_code önmagában még nem elég
+        if len(item) <= 2:
             skipped_empty += 1
             continue
 
@@ -221,20 +253,9 @@ def load_items():
 
     wb.close()
 
-    print(
-        "Prepared:",
-        len(items),
-    )
-
-    print(
-        "Skipped without barcode:",
-        skipped_barcode,
-    )
-
-    print(
-        "Skipped without data:",
-        skipped_empty,
-    )
+    print("Prepared:", len(items))
+    print("Skipped without barcode:", skipped_barcode)
+    print("Skipped without data:", skipped_empty)
 
     return items
 
@@ -277,11 +298,31 @@ def send_batch(
 def main():
     items = load_items()
 
+    # --------------------------------------------------
+    # TEST MODE - ONLY ONE PRODUCT
+    # --------------------------------------------------
+
+    items = [
+        item
+        for item in items
+        if item.get("barcode") == TEST_BARCODE
+    ]
+
     if not items:
-        print(
-            "No rows to send."
+        raise RuntimeError(
+            "Test product not found in Excel: %s"
+            % TEST_BARCODE
         )
-        return
+
+    print(
+        "TEST MODE - barcode:",
+        TEST_BARCODE,
+    )
+
+    print(
+        "TEST PAYLOAD:",
+        items[0],
+    )
 
     total_batches = (
         len(items)
