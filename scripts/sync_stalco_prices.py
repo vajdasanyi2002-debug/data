@@ -27,7 +27,7 @@ TIMEOUT = 120
 # TEST / REPLICATION SETTINGS
 # ======================================================
 
-TEST_BARCODE = "5901466110942"
+TEST_BARCODE = None
 
 # False:
 # csak Excel -> Hala teszt
