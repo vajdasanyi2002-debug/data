@@ -36,7 +36,7 @@ TEST_BARCODE = "5901466110942"
 # Hala összes Stalco variant ára
 # -> Precizia + Lunca
 #
-REPLICATE_STORE_PRICES = False
+REPLICATE_STORE_PRICES = True
 
 
 # ======================================================
