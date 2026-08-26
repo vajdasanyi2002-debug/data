@@ -87,6 +87,7 @@ def load_items():
         "weight",
         "l10n_ro_net_weight",
         "hs_code",
+        "UM",
     ]
 
     for name in required:
@@ -108,6 +109,13 @@ def load_items():
 
     for row in ws.iter_rows(min_row=2, values_only=True):
 
+        um = text_value(
+            row[columns["UM"]]
+        )
+
+        if um is not None:
+            item["um"] = um
+        
         barcode = barcode_value(
             row[columns["Cod e bare/Cod furnizo"]]
         )
