@@ -3,6 +3,10 @@ name: Stalco Product Data Sync
 on:
   workflow_dispatch:
 
+  schedule:
+    - cron: '30 2 * * *'
+      timezone: 'Europe/Bucharest'
+
 permissions:
   contents: read
 
