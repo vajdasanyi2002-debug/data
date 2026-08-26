@@ -277,11 +277,6 @@ def send_batch(
 def main():
     items = load_items()
 
-    items = [
-        item for item in items
-        if item.get("barcode") == "5901466110942"
-    ]
-
     if not items:
         print(
             "No rows to send."
