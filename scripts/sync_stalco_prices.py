@@ -279,7 +279,7 @@ def main():
 
     items = [
         item for item in items
-        if item.get("barcode") == "IDE_JÖN_A_TESZT_EAN"
+        if item.get("barcode") == "5901466110942"
     ]
 
     if not items:
